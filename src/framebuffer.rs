@@ -31,20 +31,15 @@ impl Framebuffer {
 
     pub fn point(&mut self, x: isize, y: isize) {
         if x >= 0 && x < self.width as isize && y >= 0 && y < self.height as isize {
-            let idx = (y as usize) * self.width + (x as usize);
-            self.buffer[idx] = self.current_color;
+            self.buffer[(y as usize) * self.width + (x as usize)] = self.current_color;
         }
     }
 
-    pub fn get_point(&self, x: isize, y: isize) -> Option<u32> {
+    pub fn get_color(&self, x: isize, y: isize) -> Option<u32> {
         if x >= 0 && x < self.width as isize && y >= 0 && y < self.height as isize {
             Some(self.buffer[(y as usize) * self.width + (x as usize)])
         } else {
             None
         }
-    }
-
-    pub fn get_cell_state(&self, x: isize, y: isize) -> bool {
-        self.get_point(x, y) == Some(0xFFFFFFFF)
     }
 }

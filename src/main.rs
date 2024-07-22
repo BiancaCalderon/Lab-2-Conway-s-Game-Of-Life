@@ -1,15 +1,12 @@
 use minifb::{Key, Window, WindowOptions};
-use std::time::Duration; // AsegÃºrate de importar esto
+use std::time::Duration;
 use rand::Rng;
-use crate::framebuffer::Framebuffer;
-use crate::color::Color;
 
-mod color;
 mod framebuffer;
+use framebuffer::Framebuffer;
 
 #[derive(Clone, Copy)]
 enum Organism {
-    Glider,
     Block,
     Beehive,
     Loaf,
@@ -20,411 +17,204 @@ enum Organism {
     Beacon,
     Pulsar,
     Pentadecathlon,
+    Glider,
     LWSS,
     MWSS,
     HWSS,
 }
 
-impl Organism {
-    const COUNT: usize = 14;
-
-    fn from_index(index: usize) -> Self {
-        match index {
-            0 => Organism::Glider,
-            1 => Organism::Block,
-            2 => Organism::Beehive,
-            3 => Organism::Loaf,
-            4 => Organism::Boat,
-            5 => Organism::Tub,
-            6 => Organism::Blinker,
-            7 => Organism::Toad,
-            8 => Organism::Beacon,
-            9 => Organism::Pulsar,
-            10 => Organism::Pentadecathlon,
-            11 => Organism::LWSS,
-            12 => Organism::MWSS,
-            13 => Organism::HWSS,
-            _ => Organism::Glider,
-        }
-    }
-}
-
-fn initialize_pattern(framebuffer: &mut Framebuffer, count: usize) {
+fn generate_random_pattern(grid: &mut Vec<Vec<bool>>, width: usize, height: usize) {
     let mut rng = rand::thread_rng();
-    let max_x = framebuffer.width - 10;
-    let max_y = framebuffer.height - 10;
+    let organisms = [
+        Organism::Block, Organism::Beehive, Organism::Loaf, Organism::Boat, Organism::Tub,
+        Organism::Blinker, Organism::Toad, Organism::Beacon, Organism::Pulsar, Organism::Pentadecathlon,
+        Organism::Glider, Organism::LWSS, Organism::MWSS, Organism::HWSS,
+    ];
 
-    for _ in 0..count {
-        let x = rng.gen_range(0..max_x);
-        let y = rng.gen_range(0..max_y);
-        let organism = Organism::from_index(rng.gen_range(0..Organism::COUNT));
-        let color = match organism {
-            Organism::Glider => Color::new(255, 255, 0),
-            Organism::Block => Color::new(0, 255, 0),
-            Organism::Beehive => Color::new(0, 0, 255),
-            Organism::Loaf => Color::new(255, 0, 255),
-            Organism::Boat => Color::new(0, 255, 255),
-            Organism::Tub => Color::new(255, 128, 0),
-            Organism::Blinker => Color::new(128, 0, 255),
-            Organism::Toad => Color::new(0, 128, 255),
-            Organism::Beacon => Color::new(128, 255, 128),
-            Organism::Pulsar => Color::new(255, 0, 128),
-            Organism::Pentadecathlon => Color::new(128, 128, 255),
-            Organism::LWSS => Color::new(128, 255, 255),
-            Organism::MWSS => Color::new(255, 128, 128),
-            Organism::HWSS => Color::new(128, 255, 0),
-        };
-        add_pattern(framebuffer, x, y, organism, color);
+    let organism_count = rng.gen_range(50..100); 
+
+    for _ in 0..organism_count {
+        let organism = organisms[rng.gen_range(0..organisms.len())];
+        let x = rng.gen_range(0..(width)); 
+        let y = rng.gen_range(0..height);
+
+        place_organism(grid, x, y, organism);
+    }
+
+    //agregar más Pulsars, Pentadecathlons y Blinkers (favs)
+    let special_patterns = [
+        Organism::Pulsar, Organism::Pentadecathlon, Organism::Blinker
+    ];
+
+    for _ in 0..5 { 
+        let organism = special_patterns[rng.gen_range(0..special_patterns.len())];
+        let x = rng.gen_range(0..(width));
+        let y = rng.gen_range(0..height);
+
+        if place_organism(grid, x, y, organism) {
+        }
     }
 }
 
-fn add_pattern(framebuffer: &mut Framebuffer, x: usize, y: usize, organism: Organism, color: Color) {
-    framebuffer.set_current_color(color.to_u32());
-
+fn place_organism(grid: &mut Vec<Vec<bool>>, x: usize, y: usize, organism: Organism) -> bool {
     match organism {
-        Organism::Glider => add_glider(framebuffer, x, y),
-        Organism::Block => add_block(framebuffer, x, y),
-        Organism::Beehive => add_beehive(framebuffer, x, y),
-        Organism::Loaf => add_loaf(framebuffer, x, y),
-        Organism::Boat => add_boat(framebuffer, x, y),
-        Organism::Tub => add_tub(framebuffer, x, y),
-        Organism::Blinker => add_blinker(framebuffer, x, y),
-        Organism::Toad => add_toad(framebuffer, x, y),
-        Organism::Beacon => add_beacon(framebuffer, x, y),
-        Organism::Pulsar => add_pulsar(framebuffer, x, y),
-        Organism::Pentadecathlon => add_pentadecathlon(framebuffer, x, y),
-        Organism::LWSS => add_lwss(framebuffer, x, y),
-        Organism::MWSS => add_mwss(framebuffer, x, y),
-        Organism::HWSS => add_hwss(framebuffer, x, y),
+        Organism::Block => {
+            if x + 1 < grid[0].len() && y + 1 < grid.len() {
+                grid[y][x] = true;
+                grid[y][x + 1] = true;
+                grid[y + 1][x] = true;
+                grid[y + 1][x + 1] = true;
+                return true;
+            }
+        }
+        Organism::Pulsar => {
+            if x + 12 < grid[0].len() && y + 12 < grid.len() {
+                let pulsar_pattern = [
+                    (2, 0), (3, 0), (4, 0), (8, 0), (9, 0), (10, 0),
+                    (0, 2), (5, 2), (7, 2), (12, 2),
+                    (0, 3), (5, 3), (7, 3), (12, 3),
+                    (0, 4), (5, 4), (7, 4), (12, 4),
+                    (2, 5), (3, 5), (4, 5), (8, 5), (9, 5), (10, 5),
+                    (2, 7), (3, 7), (4, 7), (8, 7), (9, 7), (10, 7),
+                    (0, 8), (5, 8), (7, 8), (12, 8),
+                    (0, 9), (5, 9), (7, 9), (12, 9),
+                    (0, 10), (5, 10), (7, 10), (12, 10),
+                    (2, 12), (3, 12), (4, 12), (8, 12), (9, 12), (10, 12)
+                ];
+                for &(dx, dy) in &pulsar_pattern {
+                    grid[y + dy][x + dx] = true;
+                }
+                return true;
+            }
+        }
+        Organism::Pentadecathlon => {
+            if x + 14 < grid[0].len() && y + 4 < grid.len() {
+                let pentadecathlon_pattern = [
+                    (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6),
+                    (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6),
+                    (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6),
+                    (3, 1), (3, 2), (3, 3), (3, 4), (3, 5), (3, 6)
+                ];
+                for &(dx, dy) in &pentadecathlon_pattern {
+                    grid[y + dy][x + dx] = true;
+                }
+                return true;
+            }
+        }
+        Organism::Blinker => {
+            if x + 2 < grid[0].len() && y + 2 < grid.len() {
+                let blinker_pattern = [
+                    (0, 1), (1, 1), (2, 1)
+                ];
+                for &(dx, dy) in &blinker_pattern {
+                    grid[y + dy][x + dx] = true;
+                }
+                return true;
+            }
+        }
+        Organism::Tub => {
+            if x + 2 < grid[0].len() && y + 2 < grid.len() {
+                let tub_pattern = [
+                    (1, 0),
+                    (0, 1), (2, 1),
+                    (1, 2)
+                ];
+                for &(dx, dy) in &tub_pattern {
+                    grid[y + dy][x + dx] = true;
+                }
+                return true;
+            }
+        }
+        _ => {}
     }
+    false
 }
 
-fn add_glider(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    let glider_pattern = [
-        (1, 0),
-        (2, 1),
-        (0, 2),
-        (1, 2),
-        (2, 2),
-    ];
-    for &(dx, dy) in glider_pattern.iter() {
-        framebuffer.point((x + dx) as isize, (y + dy) as isize);
-    }
-}
+fn render(framebuffer: &mut Framebuffer, grid: &Vec<Vec<bool>>) {
+    let background_color = 0x00330099;
+    let cell_color = 0x00FFCC00; 
 
-fn add_block(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    if x + 1 < framebuffer.width - 1 && y + 1 < framebuffer.height - 1 {
-        framebuffer.point(x as isize, y as isize);
-        framebuffer.point((x + 1) as isize, y as isize);
-        framebuffer.point(x as isize, (y + 1) as isize);
-        framebuffer.point((x + 1) as isize, (y + 1) as isize);
-    }
-}
+    framebuffer.set_background_color(background_color); 
+    framebuffer.clear(); 
 
-fn add_beehive(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    if x + 3 < framebuffer.width - 1 && y + 2 < framebuffer.height - 1 {
-        let beehive_pattern = [
-            (1, 0),
-            (2, 0),
-            (0, 1),
-            (3, 1),
-            (1, 2),
-            (2, 2),
-        ];
-        for &(dx, dy) in beehive_pattern.iter() {
-            framebuffer.point((x + dx) as isize, (y + dy) as isize);
+    framebuffer.set_current_color(cell_color); 
+    for y in 0..framebuffer.height {
+        for x in 0..framebuffer.width {
+            if grid[y][x] {
+                framebuffer.point(x as isize, y as isize);
+            }
         }
     }
 }
 
-fn add_loaf(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    if x + 4 < framebuffer.width - 1 && y + 3 < framebuffer.height - 1 {
-        let loaf_pattern = [
-            (1, 0),
-            (2, 0),
-            (0, 1),
-            (3, 1),
-            (0, 2),
-            (3, 2),
-            (1, 3),
-            (2, 3),
-        ];
-        for &(dx, dy) in loaf_pattern.iter() {
-            framebuffer.point((x + dx) as isize, (y + dy) as isize);
-        }
-    }
-}
-
-fn add_boat(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    if x + 3 < framebuffer.width - 1 && y + 2 < framebuffer.height - 1 {
-        let boat_pattern = [
-            (1, 0),
-            (2, 0),
-            (0, 1),
-            (1, 1),
-            (0, 2),
-            (1, 2),
-        ];
-        for &(dx, dy) in boat_pattern.iter() {
-            framebuffer.point((x + dx) as isize, (y + dy) as isize);
-        }
-    }
-}
-
-fn add_tub(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    if x + 2 < framebuffer.width - 1 && y + 2 < framebuffer.height - 1 {
-        let tub_pattern = [
-            (1, 0),
-            (2, 0),
-            (0, 1),
-            (2, 1),
-            (1, 2),
-        ];
-        for &(dx, dy) in tub_pattern.iter() {
-            framebuffer.point((x + dx) as isize, (y + dy) as isize);
-        }
-    }
-}
-
-fn add_blinker(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    if x + 2 < framebuffer.width - 1 && y + 1 < framebuffer.height - 1 {
-        let blinker_pattern = [
-            (1, 0),
-            (0, 1),
-            (1, 1),
-            (2, 1),
-        ];
-        for &(dx, dy) in blinker_pattern.iter() {
-            framebuffer.point((x + dx) as isize, (y + dy) as isize);
-        }
-    }
-}
-
-fn add_toad(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    if x + 3 < framebuffer.width - 1 && y + 2 < framebuffer.height - 1 {
-        let toad_pattern = [
-            (0, 1),
-            (1, 1),
-            (2, 1),
-            (1, 0),
-            (2, 0),
-            (3, 0),
-        ];
-        for &(dx, dy) in toad_pattern.iter() {
-            framebuffer.point((x + dx) as isize, (y + dy) as isize);
-        }
-    }
-}
-
-fn add_beacon(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    if x + 3 < framebuffer.width - 1 && y + 3 < framebuffer.height - 1 {
-        let beacon_pattern = [
-            (0, 0),
-            (1, 0),
-            (0, 1),
-            (1, 1),
-            (2, 2),
-            (2, 3),
-            (3, 2),
-            (3, 3),
-        ];
-        for &(dx, dy) in beacon_pattern.iter() {
-            framebuffer.point((x + dx) as isize, (y + dy) as isize);
-        }
-    }
-}
-
-fn add_pulsar(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    // Example implementation, customize as needed
-    if x + 13 < framebuffer.width - 1 && y + 13 < framebuffer.height - 1 {
-        let pulsar_pattern = [
-            (0, 2),
-            (0, 3),
-            (1, 0),
-            (1, 4),
-            (2, 0),
-            (2, 4),
-            (3, 2),
-            (3, 3),
-            (4, 0),
-            (4, 4),
-        ];
-        for &(dx, dy) in pulsar_pattern.iter() {
-            framebuffer.point((x + dx) as isize, (y + dy) as isize);
-        }
-    }
-}
-
-fn add_pentadecathlon(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    // Example implementation, customize as needed
-    if x + 15 < framebuffer.width - 1 && y + 15 < framebuffer.height - 1 {
-        let pentadecathlon_pattern = [
-            (0, 2),
-            (1, 1),
-            (1, 2),
-            (1, 3),
-            (1, 4),
-            (2, 0),
-            (2, 5),
-            (3, 0),
-            (3, 5),
-            (4, 1),
-            (4, 2),
-            (4, 3),
-            (4, 4),
-            (5, 2),
-            (6, 2),
-        ];
-        for &(dx, dy) in pentadecathlon_pattern.iter() {
-            framebuffer.point((x + dx) as isize, (y + dy) as isize);
-        }
-    }
-}
-
-fn add_lwss(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    // Example implementation, customize as needed
-    if x + 6 < framebuffer.width - 1 && y + 2 < framebuffer.height - 1 {
-        let lwss_pattern = [
-            (1, 0),
-            (2, 0),
-            (3, 0),
-            (4, 0),
-            (0, 1),
-            (4, 1),
-            (0, 2),
-            (1, 2),
-            (2, 2),
-            (3, 2),
-        ];
-        for &(dx, dy) in lwss_pattern.iter() {
-            framebuffer.point((x + dx) as isize, (y + dy) as isize);
-        }
-    }
-}
-
-fn add_mwss(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    // Example implementation, customize as needed
-    if x + 7 < framebuffer.width - 1 && y + 3 < framebuffer.height - 1 {
-        let mwss_pattern = [
-            (1, 0),
-            (2, 0),
-            (3, 0),
-            (4, 0),
-            (5, 0),
-            (0, 1),
-            (6, 1),
-            (0, 2),
-            (1, 2),
-            (2, 2),
-            (6, 2),
-            (0, 3),
-            (6, 3),
-        ];
-        for &(dx, dy) in mwss_pattern.iter() {
-            framebuffer.point((x + dx) as isize, (y + dy) as isize);
-        }
-    }
-}
-
-fn add_hwss(framebuffer: &mut Framebuffer, x: usize, y: usize) {
-    // Example implementation, customize as needed
-    if x + 8 < framebuffer.width - 1 && y + 4 < framebuffer.height - 1 {
-        let hwss_pattern = [
-            (1, 0),
-            (2, 0),
-            (3, 0),
-            (4, 0),
-            (5, 0),
-            (6, 0),
-            (7, 0),
-            (0, 1),
-            (1, 1),
-            (2, 1),
-            (3, 1),
-            (4, 1),
-            (5, 1),
-            (6, 1),
-            (7, 1),
-            (0, 2),
-            (7, 2),
-            (0, 3),
-            (7, 3),
-            (0, 4),
-            (1, 4),
-            (2, 4),
-            (3, 4),
-            (4, 4),
-            (5, 4),
-            (6, 4),
-            (7, 4),
-        ];
-        for &(dx, dy) in hwss_pattern.iter() {
-            framebuffer.point((x + dx) as isize, (y + dy) as isize);
-        }
-    }
-}
-
-fn count_live_neighbors(framebuffer: &Framebuffer, x: isize, y: isize) -> usize {
+fn count_neighbors(grid: &Vec<Vec<bool>>, x: usize, y: usize, width: usize, height: usize) -> usize {
     let mut count = 0;
-    let directions = [
-        (-1, -1), (-1, 0), (-1, 1),
-        (0, -1),          (0, 1),
-        (1, -1), (1, 0), (1, 1),
-    ];
-
-    for &(dx, dy) in directions.iter() {
-        let nx = x + dx;
-        let ny = y + dy;
-        if nx >= 0 && nx < framebuffer.width as isize &&
-           ny >= 0 && ny < framebuffer.height as isize {
-            let index = (ny as usize) * framebuffer.width + (nx as usize);
-            if framebuffer.buffer[index] != framebuffer.background_color {
+    for i in [-1, 0, 1].iter() {
+        for j in [-1, 0, 1].iter() {
+            if *i == 0 && *j == 0 {
+                continue;
+            }
+            let nx = (x as isize + i) as usize;
+            let ny = (y as isize + j) as usize;
+            if nx < width && ny < height && grid[ny][nx] {
                 count += 1;
             }
         }
     }
-
     count
 }
 
-fn update_framebuffer(framebuffer: &mut Framebuffer) {
-    let mut new_buffer = framebuffer.buffer.clone();
-    for y in 0..framebuffer.height {
-        for x in 0..framebuffer.width {
-            let index = y * framebuffer.width + x;
-            let is_alive = framebuffer.buffer[index] != framebuffer.background_color;
-            let live_neighbors = count_live_neighbors(framebuffer, x as isize, y as isize);
+fn main() {
+    let window_width = 800;
+    let window_height = 600;
 
-            if is_alive {
-                if live_neighbors < 2 || live_neighbors > 3 {
-                    new_buffer[index] = framebuffer.background_color; // Muere
-                }
-            } else {
-                if live_neighbors == 3 {
-                    new_buffer[index] = 0xFFFFFFFF; // Nace
+    let framebuffer_width = 100;
+    let framebuffer_height = 100;
+
+    let frame_delay = Duration::from_millis(100);
+
+    let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
+
+    let mut window = Window::new(
+        "Conway's Game of Life",
+        window_width,
+        window_height,
+        WindowOptions::default(),
+    ).unwrap();
+
+    let mut grid = vec![vec![false; framebuffer_width]; framebuffer_height];
+
+    // Generar patrón inicial aleatorio con más patrones especiales
+    generate_random_pattern(&mut grid, framebuffer_width, framebuffer_height);
+
+    while window.is_open() && !window.is_key_down(Key::Escape) {
+        // Actualizar framebuffer
+        render(&mut framebuffer, &grid);
+
+        // Actualizar la ventana con el contenido del framebuffer
+        window
+            .update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height)
+            .unwrap();
+
+        // Calcular el siguiente estado
+        let mut new_grid = grid.clone();
+        for y in 0..framebuffer_height {
+            for x in 0..framebuffer_width {
+                let neighbors = count_neighbors(&grid, x, y, framebuffer_width, framebuffer_height);
+                if grid[y][x] {
+                    if neighbors < 2 || neighbors > 3 {
+                        new_grid[y][x] = false;
+                    }
+                } else {
+                    if neighbors == 3 {
+                        new_grid[y][x] = true;
+                    }
                 }
             }
         }
-    }
+        grid = new_grid;
 
-    framebuffer.buffer = new_buffer;
-}
-
-fn main() {
-    let width = 800;
-    let height = 600;
-    let mut framebuffer = Framebuffer::new(width, height);
-    initialize_pattern(&mut framebuffer, 50);
-
-    let mut window = Window::new("Conway's Game of Life", width, height, WindowOptions::default())
-        .unwrap_or_else(|e| {
-            panic!("Window creation failed: {:?}", e);
-        });
-
-    window.limit_update_rate(Some(Duration::from_millis(100))); // Puedes cambiar esto si usas set_fps_target
-
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        update_framebuffer(&mut framebuffer);
-        window.update_with_buffer(&framebuffer.buffer, width, height).unwrap();
+        std::thread::sleep(frame_delay);
     }
 }
+
